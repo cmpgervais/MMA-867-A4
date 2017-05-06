@@ -1,0 +1,120 @@
+---
+title: 'Multivariate Statistical Analysis : A4'
+author: "Chris Gervais (20042208)"
+date: "May 3, 2017"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(readxl)
+library(gpairs)
+library(psych)
+library(ggplot2)
+library(ggrepel)
+library(knitr)
+options(digits = 3)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+
+data_raw <- read_excel("returns.xlsx", sheet = 2)
+df <- data_raw[,-c(1:2)]
+df_cor <- cor(df)
+
+principal <- princomp(df, cor = TRUE)
+pca_components<- as.data.frame(-principal$loadings[,1:41])
+
+
+fa_base <- fa(df_cor, fm = "mle", n.obs = 78, nfactors = 4)
+fa_rotated <- fa(df_cor, fm = "mle", n.obs = 78, nfactors = 4, rotate = "varimax")
+
+```
+1. After completing a principal component analysis, it appears that *nine* dimensions are sufficient for capturing the most of the variation in the data. When the Eigen value for the corresponding principal component drop below 1, it means that the new principal component variable is doing a worse job explaining the variance than the original variables. The table of Eigen values, below, shows that the first *nine* of them are above zero. The corresponding scree plot supports this finding. Further, the variance plot shows that approximately 72% of the variance is accounted for in the first *nine* principal components.
+
+```{r, fig.align = 'center', fig.width = 10, fig.height=6, fig.align="c", message = FALSE}
+eig <- eigen(cor(df))
+
+df_eig <- data.frame(1:10, eig$values[1:10])
+names(df_eig) <- c("Eigen Value", "Value")
+
+kable(df_eig, caption = "Table showing that the first nine Eigen values are above 1", align = "c")
+fa.parallel(df)
+test <- read.csv("test.csv")
+ggplot(test, aes(x = eig, y = cumulative))+
+  geom_line(aes(x = eig, y = cumulative))+
+  geom_point(aes(x=eig, y = cumulative, col = "blue"))+
+  geom_line(aes(x = eig, y = proportion))+
+  geom_point(aes(x=eig, y = proportion, col = "red"))+
+  labs(x = "Principal Component", y = "% of Variance Explained",color = "Series")+
+  scale_color_manual(labels = c("Cumulative", "Proportion"), values = c("blue", "red")) + ggtitle("% Variance Explained by Principal Component")
+
+```
+
+
+2. After creating the component pattern plots, the following groupings were observed:
+
+* The plot of principal component 1 against component 2 appears to show a grouping of Shell and Exxon in the top right quadrant. These two may be grouped together because of their relationship to the fossil fuel industry. Also of interest is that PotashCorp is grouped in a similar area, which may suggest that the Exxon and Shell grouping generalizes to natural resource companies. 
+
+* The plot of principal component 1 against component 3 appears to show a grouping of Pepsi and Coke in the top right quadrant. This grouping may suggest that companies tied to the beverage or fast food industries move together in this dimension.
+
+* Lastly, the plot of principal component 2 against 3 appears to show a grouping of MasterCard and VISA in the bottom left quadrant. This grouping may suggest that credit card companies move together in this dimension. Also present in this dimension is a grouping of technology companies, including IBM, Apple, and BellAliant. 
+
+```{r, fig.width = 6, fig.height=4}
+p1 <- ggplot(pca_components, aes(x = pca_components[,1], y = pca_components[,2], label = row.names(pca_components)))+geom_point()
+p1 + coord_cartesian(xlim = c(-0.5,0.5), ylim = c(-0.5,0.5)) + 
+  geom_text_repel()+
+  labs(x = "Component 1", y = "Component 2")+
+  ggtitle("Scatterplot of Component 1 vs Component 2")
+
+p2 <- ggplot(pca_components, aes(x = pca_components[,1], y = pca_components[,3], label = row.names(pca_components)))+geom_point()
+p2 + coord_cartesian(xlim = c(-0.5,0.5), ylim = c(-0.5,0.5)) + 
+  geom_text_repel()+
+  labs(x = "Component 1", y = "Component 3")+
+  ggtitle("Scatterplot of Component 1 vs Component 3")
+
+p3 <- ggplot(pca_components, aes(x = pca_components[,2], y = pca_components[,3], label = row.names(pca_components)))+geom_point()
+p3 + coord_cartesian(xlim = c(-0.5,0.5), ylim = c(-0.5,0.5)) + 
+  geom_text_repel()+
+  labs(x = "Component 2", y = "Component 3")+
+  ggtitle("Scatterplot of Component 2 vs Component 3")
+```
+
+3. After creating the following factor analyses (below), the Heywood condition appears to go away when *four* factors are used.
+
+```{r, warning = TRUE, echo = TRUE}
+#Factor analysis with 6 factors:
+fa_base <- fa(df_cor, fm = "mle", n.obs = 78, nfactors = 6)
+```
+
+```{r, warning = TRUE, echo = TRUE}
+#Factor analysis with 5 factors:
+fa_base <- fa(df_cor, fm = "mle", n.obs = 78, nfactors = 5)
+```
+
+```{r, warning = TRUE, echo = TRUE}
+#Factor analysis with 4 factors:
+fa_base <- fa(df_cor, fm = "mle", n.obs = 78, nfactors = 4)
+```
+
+Note that no warning was given for the case of *nfactors = 4*, indicating that they Heywood condition is no longer present when 4 or less factors are used.
+
+\newpage
+
+
+
+```{r, fig.height=10, align="c"}
+checkk <- fa_rotated$loadings[,1:4]
+
+new_df <- data.frame(row.names(checkk), checkk[,1], checkk [,4], checkk[,2], checkk[,3])
+
+
+names(new_df) <- c("Stock","ML1", "ML2", "ML3", "ML4")
+
+kable(new_df[order(-new_df$ML1),], caption = "Table of the factor loadings.", row.names = FALSE)
+fa.diagram(fa_rotated, )
+```
+
+4. Table 4 shows how each factor is loading on each stock, while the factor diagram shows the underlying cluster of stocks on each factor. From the factor diagram, we can clearly see that factor 2 is loading heavily on DeltaAir and AmerAir, suggesting that this factor may represent how airline industry stocks have performed. Factor 4 seems to have loaded heavily on VISA and Mastercard, suggesting that this factor may represent how credit card stocks have performed. Finally, factor 4 appears to be loading heavily on insurance stocks such as Manulife and SunLife, as well as car manfuacturers such as Ford, Nissan, and Toyota. However, this factor has also clustered companies from financial services and technology industries, suggesting that this factor may represent the general market trend for stocks over the time period. 
+
